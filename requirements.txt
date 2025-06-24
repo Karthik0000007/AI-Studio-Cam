@@ -21,3 +21,4 @@ SpeechRecognition
 pyaudio
 pipwin
 soundfile
+open_clip_torch
