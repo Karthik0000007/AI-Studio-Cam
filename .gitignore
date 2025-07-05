@@ -10,3 +10,5 @@ venv/
 env/
 *.onnx
 ai-studio-env
+memory
+snapshots/
