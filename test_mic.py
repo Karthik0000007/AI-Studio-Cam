@@ -1,23 +1,23 @@
-import os
-os.environ["PATH"] += os.pathsep + r"C:\Program Files\ffmpeg-7.1.1-full_build\bin"
-
+from tts import tts_speak
 import whisper
 import sounddevice as sd
 import soundfile as sf
+import os
+os.environ["PATH"] += os.pathsep + r"C:\Program Files\ffmpeg-7.1.1-full_build\bin"
 
-# Config
 SAMPLE_RATE = 16000
 DURATION = 5
-AUDIO_FILE = "test_audio.wav"
+AUDIO_FILE = "test.wav"
 
-# Step 1: Record
 print("🎤 Speak now...")
 recording = sd.rec(int(DURATION * SAMPLE_RATE), samplerate=SAMPLE_RATE, channels=1, dtype='float32')
 sd.wait()
 sf.write(AUDIO_FILE, recording, SAMPLE_RATE)
-print("✅ Recording saved.")
 
-# Step 2: Transcribe with Whisper
+print("🧠 Transcribing...")
 model = whisper.load_model("base")
 result = model.transcribe(AUDIO_FILE)
-print("📜 You said:", result["text"])
+query = result["text"].lower()
+print("🗣️ You said:", query)
+
+tts_speak(f"You said: {query}")

@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import os
 
 # === MongoDB Atlas URI ===
-uri = "mongodb+srv://sairamkarthikmalladi:<YOUR_PASS>@cluster0.zntg1pw.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+uri = "mongodb+srv://sairamkarthikmalladi:<b413Sf103OeUIouI>@cluster0.zntg1pw.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 
 # === Connect to MongoDB ===
 client = MongoClient(uri, server_api=ServerApi('1'))
