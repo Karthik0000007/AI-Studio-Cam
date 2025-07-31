@@ -51,7 +51,7 @@ cd ai-studio-cam
 pip install -r requirements.txt
 python main.py
 ```
-
+```bash
 ai-studio-cam/
 ├── main.py                   # Main pipeline entry
 ├── db_handler.py             # Handles connecting to a MongoDB Atlas database
@@ -61,3 +61,4 @@ ai-studio-cam/
 ├── voice_input.py            # Records audio from the microphone, saves it
 ├── tts.py                    # uses the pyttsx3 library to convert text to speech
 └── requirements.txt
+```
