@@ -51,6 +51,9 @@ cd ai-studio-cam
 pip install -r requirements.txt
 python main.py
 ```
+
+## File Structure
+
 ```bash
 ai-studio-cam/
 ├── main.py                   # Main pipeline entry
