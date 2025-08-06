@@ -1,138 +1,108 @@
+"""
+AI Studio Cam - Main Application
+"""
+
 import os
 import cv2
-import time
-import pyttsx3
-import whisper
-from voice_input import capture_and_transcribe
-import sounddevice as sd
-import soundfile as sf
-from ultralytics import YOLO
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
-# Set PATH for ffmpeg (Whisper dependency)
-os.environ["PATH"] += os.pathsep + r"C:\Program Files\ffmpeg-7.1.1-full_build\bin"
+from core.camera_handler import CameraHandler
+from core.camera_handler_cnn import CameraHandlerCNN
+from config.model_config import ModelConfig
 
-# === Local imports ===
-from clip_memory import (
-    save_snapshot_and_embedding,
-    save_memory,
-    search_similar_scene,
-    find_last_seen_object,
-    get_snapshot_near_seconds_ago
-)
+class AIStudioCam:
+    def __init__(self, use_cnn=False):
+        self.use_cnn = use_cnn
+        self.camera_handler = None
+        
+    def initialize(self):
+        if self.use_cnn:
+            self.camera_handler = CameraHandlerCNN()
+            print("Using CNN model")
+        else:
+            self.camera_handler = CameraHandler()
+            print("Using YOLO model")
+        
+        self.camera_handler.initialize()
+    
+    def run(self):
+        print("AI Studio Cam - Press 'q' to quit")
+        
+        while self.camera_handler.is_opened():
+            frame = self.camera_handler.capture_frame()
+            annotated_frame, detected_objects = self.camera_handler.detect_objects(frame)
+            
+            cv2.imshow("AI Studio Cam", annotated_frame)
+            
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('q'):
+                break
+        
+        self.cleanup()
+    
+    def cleanup(self):
+        if self.camera_handler:
+            self.camera_handler.release()
+        cv2.destroyAllWindows()
 
-# === Config ===
-AUDIO_FILE = "temp.wav"
-SAMPLE_RATE = 16000
-DURATION = 5  # seconds
-SNAPSHOT_INTERVAL = 15  # seconds
-
-# === Initialize Models ===
-device = "cuda" if cv2.cuda.getCudaEnabledDeviceCount() > 0 else "cpu"
-yolo_model = YOLO("yolov8n.pt")
-whisper_model = capture_and_transcribe()
-engine = pyttsx3.init()
-engine.setProperty("rate", 170)
-
-# === Initialize Camera ===
-cap = cv2.VideoCapture(0)
-cap.set(3, 1280)
-cap.set(4, 720)
-
-last_snapshot_time = time.time()
-
-def speak(text):
-    print("[AI]:", text)
-    engine.say(text)
-    engine.runAndWait()
-
-def record_voice():
-    print("[🎤] Recording voice...")
-    audio = sd.rec(int(DURATION * SAMPLE_RATE), samplerate=SAMPLE_RATE, channels=1, dtype='float32')
-    sd.wait()
-    sf.write(AUDIO_FILE, audio, SAMPLE_RATE)
-
-def transcribe_audio():
-    print("🧠 Transcribing...")
-    result = whisper_model.transcribe(AUDIO_FILE)
-    return result["text"]
-
-print("[INFO] Press 'v' to speak | Press 'q' to quit.")
-
-while cap.isOpened():
-    success, frame = cap.read()
-    if not success:
-        break
-
-    results = yolo_model(frame)
-    annotated_frame = results[0].plot()
-
-    # === Get Detected Object Names ===
-    detected_classes = [yolo_model.model.names[int(cls)] for cls in results[0].boxes.cls]
-    unique_objects = list(set(detected_classes))
-
-    # === Show Frame with Boxes ===
-    cv2.imshow("AI Studio Cam", annotated_frame)
-
-    # === Take Snapshot Every X Seconds ===
-    if time.time() - last_snapshot_time > SNAPSHOT_INTERVAL:
-        save_snapshot_and_embedding(frame, unique_objects)
-        last_snapshot_time = time.time()
-
-    # === Key Presses ===
-    key = cv2.waitKey(1) & 0xFF
-    if key == ord('q'):
-        break
-
-    if key == ord('v'):
-        speak("I'm listening now.")
-        try:
-            record_voice()
-            query = transcribe_audio()
-            print("[User]:", query)
-
-            query_lower = query.lower()
-
-            # === Object Recall ===
-            if "last" in query_lower and "see" in query_lower:
-                for obj in ["person", "phone", "laptop", "chair", "bottle", "stapler"]:  # add more if needed
-                    if obj in query_lower:
-                        match = find_last_seen_object(obj)
-                        if match:
-                            reply = f"I last saw a {obj} at {match['timestamp']} with: {', '.join(match['objects'])}."
-                        else:
-                            reply = f"I haven't seen a {obj} yet."
-                        break
+def main():
+    """Main application function"""
+    
+    # Load configuration
+    config = ModelConfig()
+    
+    # Interactive model selection
+    print("AI Studio Cam - Model Selection")
+    print("=" * 30)
+    print("1. YOLO (default)")
+    print("2. CNN")
+    
+    choice = input("Enter choice (1 or 2): ").strip()
+    model_type = 'cnn' if choice == '2' else 'yolo'
+    
+    print(f"Selected: {model_type.upper()}")
+    print()
+    
+    # Check if CNN model is available
+    if model_type == 'cnn':
+        latest_model = config.get_latest_cnn_model()
+        if not latest_model:
+            print("No CNN models found!")
+            print("Would you like to train a CNN model now?")
+            train_choice = input("Train CNN model? (y/n): ").strip().lower()
+            
+            if train_choice in ['y', 'yes']:
+                print("Starting CNN training...")
+                # Import and run the training script
+                import subprocess
+                import sys
+                import os
+                
+                training_script = os.path.join(os.path.dirname(__file__), 'training', 'train_cnn_model.py')
+                if os.path.exists(training_script):
+                    try:
+                        subprocess.run([sys.executable, training_script], check=True)
+                        print("Training completed! Please run the application again.")
+                    except subprocess.CalledProcessError:
+                        print("Training failed. Please check the training script.")
+                    return 0
                 else:
-                    # fallback to CLIP semantic search
-                    match = search_similar_scene(query)
-                    reply = f"I found something similar at {match['timestamp']} seeing: {', '.join(match['objects'])}." if match else "I couldn’t find a moment like that."
-
-            # === Time-based Recall ===
-            elif "seconds ago" in query_lower:
-                try:
-                    seconds = int([s for s in query_lower.split() if s.isdigit()][0])
-                    match = get_snapshot_near_seconds_ago(seconds)
-                    reply = f"Around {seconds} seconds ago, I saw: {', '.join(match['objects'])}." if match else "I couldn't find anything from that time."
-                except:
-                    reply = "Sorry, I couldn't understand the time reference."
-
-            # === General Visual QA ===
+                    print("Training script not found!")
+                    return 1
             else:
-                if unique_objects:
-                    reply = f"I can currently see: {', '.join(unique_objects)}."
-                else:
-                    reply = "I'm not detecting anything clearly right now."
+                print("Please train a CNN model first or use YOLO instead.")
+                return 1
+    
+    # Start the application
+    print(f"Starting AI Studio Cam with {model_type.upper()} model...")
+    use_cnn = model_type == 'cnn'
+    
+    app = AIStudioCam(use_cnn=use_cnn)
+    app.initialize()
+    app.run()
+    
+    return 0
 
-            speak(reply)
-
-        except Exception as e:
-            print(f"[ERROR]: {e}")
-            speak("Sorry, I had trouble understanding that.")
-
-# === Cleanup ===
-cap.release()
-cv2.destroyAllWindows()
-save_memory()
-
-if os.path.exists(AUDIO_FILE):
-    os.remove(AUDIO_FILE)
+if __name__ == "__main__":
+    exit(main())
