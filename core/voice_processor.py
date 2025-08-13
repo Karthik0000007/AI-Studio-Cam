@@ -1,24 +1,33 @@
 """
 Voice Processor Module
 
-Handles voice input, transcription, and text-to-speech functionality.
+Handles voice input, transcription, text-to-speech, and query processing functionality.
 """
 
 import os
 import pyttsx3
 import logging
 import sys
-sys.path.append(os.path.dirname(__file__))
+import sounddevice as sd
+import whisper
+import warnings
+import re
 
-from voice_input import capture_and_transcribe
+# Suppress FP16 warnings
+warnings.filterwarnings("ignore", message="FP16 is not supported on CPU")
 
 logger = logging.getLogger(__name__)
 
+# Audio constants
+SAMPLE_RATE = 16000
+DURATION = 5
+
 class VoiceProcessor:
     def __init__(self, speech_rate=170):
-        """Initialize TTS engine"""
+        """Initialize TTS engine and Whisper model"""
         self.speech_rate = speech_rate
         self.engine = None
+        self.whisper_model = None
         self._initialize_tts()
     
     def _initialize_tts(self):
@@ -30,6 +39,12 @@ class VoiceProcessor:
         except Exception as e:
             logger.error(f"Failed to initialize TTS engine: {e}")
             self.engine = None
+    
+    def _get_whisper_model(self):
+        """Lazy load Whisper model - using tiny model for speed"""
+        if self.whisper_model is None:
+            self.whisper_model = whisper.load_model("tiny")
+        return self.whisper_model
     
     def speak(self, text):
         """Convert text to speech"""
@@ -48,11 +63,32 @@ class VoiceProcessor:
         """Capture and transcribe voice input"""
         try:
             self.speak("I'm listening now.")
-            transcribed_text = capture_and_transcribe()
+            transcribed_text = self._capture_and_transcribe()
             logger.info(f"Voice input transcribed: {transcribed_text}")
             return transcribed_text
         except Exception as e:
             logger.error(f"Voice input failed: {e}")
+            return ""
+    
+    def _capture_and_transcribe(self):
+        """Capture audio and return transcribed text"""
+        try:
+            print("🎤 Speak now...")
+            recording = sd.rec(int(DURATION * SAMPLE_RATE), samplerate=SAMPLE_RATE, channels=1, dtype='float32')
+            sd.wait()
+            
+            print("🧠 Transcribing...")
+            model = self._get_whisper_model()
+            
+            audio_data = recording.flatten().astype('float32')
+            result = model.transcribe(audio_data, fp16=False)
+            
+            text = result["text"].lower().strip()
+            print("🗣️ You said:", text)
+            
+            return text
+        except Exception as e:
+            print(f"[ERROR] Voice capture failed: {e}")
             return ""
     
     def process_query(self, query, memory_manager, current_objects):
@@ -60,15 +96,10 @@ class VoiceProcessor:
         try:
             query_lower = query.lower()
             
-            # Object recall queries
             if "last" in query_lower and "see" in query_lower:
                 return self._handle_object_recall(query_lower, memory_manager)
-            
-            # Time-based recall queries
             elif "seconds ago" in query_lower:
                 return self._handle_time_recall(query_lower, memory_manager)
-            
-            # Current view queries
             else:
                 return self._handle_current_view(current_objects)
                 
@@ -98,39 +129,32 @@ class VoiceProcessor:
     def _handle_time_recall(self, query_lower, memory_manager):
         """Handle time-based recall queries"""
         try:
-            # Extract seconds from query
-            words = query_lower.split()
-            seconds = None
-            for word in words:
-                if word.isdigit():
-                    seconds = int(word)
-                    break
-            
-            if seconds is None:
-                return "Sorry, I couldn't understand the time reference."
-            
-            match = memory_manager.get_snapshot_near_seconds_ago(seconds)
-            if match:
-                return f"Around {seconds} seconds ago, I saw: {', '.join(match['objects'])}."
+            time_match = re.search(r'(\d+)\s*seconds?\s*ago', query_lower)
+            if time_match:
+                seconds = int(time_match.group(1))
+                match = memory_manager.get_snapshot_near_seconds_ago(seconds)
+                if match:
+                    return f"{seconds} seconds ago, I saw: {', '.join(match['objects'])}."
+                else:
+                    return f"I don't have a snapshot from {seconds} seconds ago."
             else:
-                return "I couldn't find anything from that time."
-                
+                return "Please specify how many seconds ago, like '30 seconds ago'."
         except Exception as e:
             logger.error(f"Time recall processing failed: {e}")
-            return "Sorry, I couldn't understand the time reference."
+            return "Sorry, I had trouble with that time-based request."
     
     def _handle_current_view(self, current_objects):
         """Handle current view queries"""
         if current_objects:
-            return f"I can currently see: {', '.join(current_objects)}."
+            return f"I currently see: {', '.join(current_objects)}."
         else:
-            return "I'm not detecting anything clearly right now."
+            return "I don't see any objects in the current view."
     
     def cleanup(self):
-        """Clean up voice processor resources"""
+        """Clean up TTS resources"""
         try:
             if self.engine:
                 self.engine.stop()
-                logger.info("Voice processor cleaned up successfully")
+                logger.info("TTS engine cleaned up")
         except Exception as e:
-            logger.error(f"Error cleaning up voice processor: {e}")
+            logger.error(f"Error cleaning up TTS engine: {e}")

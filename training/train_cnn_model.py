@@ -1,4 +1,4 @@
-"""Custom CNN Training with Hyperparameter Optimization - Refactored Version"""
+"""Custom CNN Training with Hyperparameter Optimization"""
 
 import os, torch, optuna
 import torch.nn as nn, torch.optim as optim
@@ -10,7 +10,9 @@ from datetime import datetime
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 num_workers = os.cpu_count()
 
+
 class CustomDataset(Dataset):
+
     def __init__(self, root_dir, transform=None):
         self.transform = transform
         self.classes = sorted(os.listdir(root_dir))
@@ -34,7 +36,9 @@ class CustomDataset(Dataset):
             black_img = Image.new('RGB', (224, 224), (0, 0, 0))
             return self.transform(black_img) if self.transform else black_img, label
 
+
 class CustomCNN(nn.Module):
+
     def __init__(self, num_classes, dropout_rate=0.2, num_filters=16):
         super().__init__()
         self.features = nn.Sequential(
@@ -42,19 +46,19 @@ class CustomCNN(nn.Module):
             nn.Conv2d(3, num_filters, 3, padding=1), nn.BatchNorm2d(num_filters), nn.ReLU(True),
             nn.Conv2d(num_filters, num_filters, 3, padding=1), nn.BatchNorm2d(num_filters), nn.ReLU(True), nn.MaxPool2d(2),
             # Block 2
-            nn.Conv2d(num_filters, num_filters*2, 3, padding=1), nn.BatchNorm2d(num_filters*2), nn.ReLU(True),
-            nn.Conv2d(num_filters*2, num_filters*2, 3, padding=1), nn.BatchNorm2d(num_filters*2), nn.ReLU(True), nn.MaxPool2d(2),
+            nn.Conv2d(num_filters, num_filters * 2, 3, padding=1), nn.BatchNorm2d(num_filters * 2), nn.ReLU(True),
+            nn.Conv2d(num_filters * 2, num_filters * 2, 3, padding=1), nn.BatchNorm2d(num_filters * 2), nn.ReLU(True), nn.MaxPool2d(2),
             # Block 3
-            nn.Conv2d(num_filters*2, num_filters*4, 3, padding=1), nn.BatchNorm2d(num_filters*4), nn.ReLU(True),
-            nn.Conv2d(num_filters*4, num_filters*4, 3, padding=1), nn.BatchNorm2d(num_filters*4), nn.ReLU(True), nn.MaxPool2d(2),
+            nn.Conv2d(num_filters * 2, num_filters * 4, 3, padding=1), nn.BatchNorm2d(num_filters * 4), nn.ReLU(True),
+            nn.Conv2d(num_filters * 4, num_filters * 4, 3, padding=1), nn.BatchNorm2d(num_filters * 4), nn.ReLU(True), nn.MaxPool2d(2),
             # Block 4
-            nn.Conv2d(num_filters*4, num_filters*8, 3, padding=1), nn.BatchNorm2d(num_filters*8), nn.ReLU(True),
-            nn.Conv2d(num_filters*8, num_filters*8, 3, padding=1), nn.BatchNorm2d(num_filters*8), nn.ReLU(True), nn.MaxPool2d(2),
+            nn.Conv2d(num_filters * 4, num_filters * 8, 3, padding=1), nn.BatchNorm2d(num_filters * 8), nn.ReLU(True),
+            nn.Conv2d(num_filters * 8, num_filters * 8, 3, padding=1), nn.BatchNorm2d(num_filters * 8), nn.ReLU(True), nn.MaxPool2d(2),
             nn.AdaptiveAvgPool2d((1, 1))
         )
         self.classifier = nn.Sequential(
-            nn.Dropout(dropout_rate), nn.Linear(num_filters*8, num_filters*4), nn.ReLU(True),
-            nn.Dropout(dropout_rate), nn.Linear(num_filters*4, num_classes)
+            nn.Dropout(dropout_rate), nn.Linear(num_filters * 8, num_filters * 4), nn.ReLU(True),
+            nn.Dropout(dropout_rate), nn.Linear(num_filters * 4, num_classes)
         )
         self._init_weights()
     
@@ -67,6 +71,7 @@ class CustomCNN(nn.Module):
     def forward(self, x):
         x = self.features(x)
         return self.classifier(x.view(x.size(0), -1))
+
 
 def create_datasets_with_transforms(dataset_path):
     """Create and split datasets with basic transforms (no augmentation)"""
@@ -86,6 +91,7 @@ def create_datasets_with_transforms(dataset_path):
     train_dataset, val_dataset, test_dataset = random_split(dataset, [train_size, val_size, test_size])
     
     return train_dataset, val_dataset, test_dataset, dataset.classes
+
 
 def run_epoch(model, loader, criterion, optimizer=None, scaler=None):
     is_training = optimizer is not None
@@ -120,6 +126,7 @@ def run_epoch(model, loader, criterion, optimizer=None, scaler=None):
     
     return total_loss / len(loader), 100 * correct / total
 
+
 def train_with_params(max_epochs, patience_limit, params, train_loader, val_loader, num_classes, trial=None):
     model = CustomCNN(num_classes, params['dropout_rate'], params['num_filters']).to(device, memory_format=torch.channels_last)
     criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
@@ -142,18 +149,15 @@ def train_with_params(max_epochs, patience_limit, params, train_loader, val_load
         training_history.append({'epoch': epoch + 1, 'train_loss': train_loss, 'train_acc': train_acc,
                                'val_loss': val_loss, 'val_acc': val_acc, 'lr': optimizer.param_groups[0]['lr']})
         
-        # Print every epoch for better monitoring
-        print(f"Epoch {epoch+1}/{max_epochs}: Train {train_acc:.2f}%, Val {val_acc:.2f}%")
-        
         if val_acc > best_val_acc:
             best_val_acc, best_model_state, patience_counter = val_acc, model.state_dict().copy(), 0
         else:
             patience_counter += 1
             if patience_counter >= patience_limit:
-                print(f"Early stopping at epoch {epoch+1}")
                 break
     
     return best_val_acc, best_model_state, training_history
+
 
 def objective(trial, train_dataset, val_dataset, num_classes):
     params = {
@@ -172,51 +176,38 @@ def objective(trial, train_dataset, val_dataset, num_classes):
     val_acc, _, _ = train_with_params(8, 3, params, train_loader, val_loader, num_classes, trial=trial)
     return val_acc
 
+
 def optimize_hyperparameters(n_trials, train_dataset, val_dataset, num_classes, use_pruning=True):
-    print(f"Starting hyperparameter optimization with {n_trials} trials...")
-    
     if use_pruning:
         # Use a less aggressive pruner
-        study = optuna.create_study(direction='maximize', 
-                                    pruner=optuna.pruners.MedianPruner(n_startup_trials=10, 
+        study = optuna.create_study(direction='maximize',
+                                    pruner=optuna.pruners.MedianPruner(n_startup_trials=10,
                                     n_warmup_steps=3, interval_steps=1))
     else:
         # Disable pruning to run all trials
         study = optuna.create_study(direction='maximize')
     
-    study.optimize(lambda trial: objective(trial, train_dataset, val_dataset, num_classes), 
+    study.optimize(lambda trial: objective(trial, train_dataset, val_dataset, num_classes),
                    n_trials=n_trials, timeout=3600)
     
-    print(f"Best validation accuracy: {study.best_value:.2f}%")
-    print(f"Best hyperparameters: {study.best_params}")
-    
     return study.best_params, study.best_value
+
 
 def main():
     """Main training function with configuration variables"""
     
-    # Configuration variables
-    OPTIMIZATION_TRIALS = 30  # Number of hyperparameter optimization trials
-    MAX_EPOCHS = 50          # Maximum epochs for final training
-    USE_PRUNING = False      # Set to False to run all trials without pruning
+    # Configuration variables 
+    OPTIMIZATION_TRIALS = 20 
+    MAX_EPOCHS = 50 
+    USE_PRUNING = True  
     
     # Create models directory in the parent folder (root of the project)
     models_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models')
     os.makedirs(models_dir, exist_ok=True)
     
-    print("CNN Training Configuration")
-    print("=" * 30)
-    print(f"- Hyperparameter optimization: Yes (compulsory)")
-    print(f"- Optimization trials: {OPTIMIZATION_TRIALS}")
-    print(f"- Training epochs: {MAX_EPOCHS}")
-    print(f"- Pruning enabled: {USE_PRUNING}")
-    print()
-    
     # Check for dataset in parent directory (project root)
     dataset_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data/dataset')
     if not os.path.exists(dataset_path):
-        print(f"Dataset not found at {dataset_path}")
-        print("Please create a 'dataset' folder with subfolders for each class")
         return
     
     # Create datasets
@@ -224,12 +215,9 @@ def main():
     train_dataset, val_dataset, test_dataset, class_names = create_datasets_with_transforms(dataset_path)
     
     if len(train_dataset) + len(val_dataset) + len(test_dataset) == 0:
-        print("No images found in dataset!")
         return
     
     num_classes = len(class_names)
-    dataset_size = len(train_dataset) + len(val_dataset) + len(test_dataset)
-    print(f"Found {num_classes} classes: {class_names}, Total images: {dataset_size}")
     
     # Optimize hyperparameters
     best_params, best_opt_acc = optimize_hyperparameters(OPTIMIZATION_TRIALS, train_dataset, val_dataset, num_classes, USE_PRUNING)
@@ -245,7 +233,6 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=best_params['batch_size'], shuffle=False,
                             num_workers=num_workers, pin_memory=True, persistent_workers=True, prefetch_factor=4)
     
-    print(f"\nFinal training with best hyperparameters...")
     best_val_acc, best_model_state, training_history = train_with_params(MAX_EPOCHS, 10, best_params, train_loader, val_loader, num_classes)
     
     # Test evaluation
@@ -264,9 +251,7 @@ def main():
     }, model_path)
 
     total_params = sum(p.numel() for p in model.parameters())
-    print(f"\nTraining completed! Best val: {best_val_acc:.2f}%, Test: {test_acc:.2f}%")
-    print(f"Model saved: {model_path}, Parameters: {total_params:,}, Size: {total_params * 4 / 1024 / 1024:.2f} MB")
-    print(f"Used {num_workers} CPU workers for data loading")
+
 
 if __name__ == "__main__":
     main()

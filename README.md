@@ -1,6 +1,6 @@
 # AI Studio Cam 🎥🧠
 
-A real-time AI-powered memory system that sees, understands, and remembers your environment using camera, voice interface, and large language models.
+A real-time AI-powered memory system that sees, understands, and remembers your environment using computer vision, voice interface, and large language models.
 
 ## ✨ Features
 
@@ -42,31 +42,113 @@ python main.py --config
 python main.py --model cnn
 ```
 
-## 🎮 Runtime Controls
+## �� Runtime Controls
 
-| Key | Action |
-|-----|--------|
-| `v` | Voice input |
-| `q` | Quit application |
-| `s` | Switch between YOLO ↔ CNN models |
-| `d` | Detailed CNN predictions (CNN mode only) |
-| `c` | Change confidence threshold (CNN mode only) |
+### Keyboard Shortcuts
+
+| Key | Action | Description |
+|-----|--------|-------------|
+| `v` | Voice input | Activate voice recognition for hands-free interaction |
+| `q` | Quit application | Safely exit the application and save memory |
+| `s` | Switch models | Toggle between YOLO ↔ CNN models during runtime |
+| `d` | Detailed predictions | Show detailed CNN predictions with confidence scores (CNN mode only) |
+| `c` | Change confidence | Adjust confidence threshold for CNN detections (CNN mode only) |
+| `m` | Memory stats | Display current memory statistics and usage |
+| `r` | Recent snapshots | Show recent snapshots from the last few minutes |
+| `f` | Find object | Search for when a specific object was last seen |
+| `t` | Take snapshot | Manually capture a snapshot (bypasses interval) |
+| `h` | Help | Display this help menu and available commands |
+
+### Voice Commands
+
+| Command | Action | Example |
+|---------|--------|---------|
+| **"What do you see?"** | Current view analysis | Get description of current camera view |
+| **"When did you last see [object]?"** | Object recall | "When did you last see a phone?" |
+| **"What did you see [time] ago?"** | Time-based recall | "What did you see 30 seconds ago?" |
+| **"Show me something similar to [description]"** | Semantic search | "Show me something similar to a red cup" |
+| **"Take a snapshot"** | Manual capture | Capture current frame immediately |
+| **"Switch to [model]"** | Model switching | "Switch to CNN" or "Switch to YOLO" |
+| **"Memory status"** | System info | Get current memory and system status |
+| **"Clear memory"** | Reset memory | Clear all stored snapshots and embeddings |
+| **"Search for [object]"** | Object search | "Search for all images with a laptop" |
+
+### Interactive Features
+
+#### Model Switching (`s`)
+- **YOLO Mode**: General object detection with 80+ COCO classes
+- **CNN Mode**: Specialized classification with custom-trained classes
+- **Real-time**: Switch without restarting the application
+- **Preserves**: Current camera settings and memory state
+
+#### Confidence Adjustment (`c`)
+- **Range**: 0.1 to 0.9 (10% to 90%)
+- **Default**: 0.5 (50%)
+- **Effect**: Higher = fewer but more confident detections
+- **Real-time**: Changes apply immediately to next frame
+
+#### Detailed Predictions (`d`)
+- **CNN Mode Only**: Shows top-3 predictions with confidence scores
+- **Visual Overlay**: Displays predictions on camera feed
+- **Real-time**: Updates with each frame
+- **Format**: "Class: Confidence%" (e.g., "laptop: 87.3%")
+
+#### Memory Management
+- **Automatic Snapshots**: Every 15 seconds (configurable)
+- **Manual Snapshots**: Press `t` for immediate capture
+- **Memory Stats**: Press `m` for usage information
+- **Object Search**: Press `f` to find specific objects
+- **Recent View**: Press `r` for recent snapshots
+
+### Camera Controls
+
+| Action | Description | Default |
+|--------|-------------|---------|
+| **Resolution** | Camera resolution | 1280x720 |
+| **FPS** | Frame rate | Camera default |
+| **Index** | Camera device | 0 (first camera) |
+| **Auto-focus** | Focus adjustment | Camera default |
+
+### Memory System Controls
+
+| Feature | Description | Default |
+|---------|-------------|---------|
+| **Snapshot Interval** | Time between auto-snapshots | 15 seconds |
+| **Storage Location** | Local memory folder | `memory/` |
+| **Cloud Backup** | MongoDB Atlas integration | Optional |
+| **Embedding Model** | CLIP ViT-B-32 | OpenAI pretrained |
+| **Search Engine** | FAISS vector search | L2 distance |
+
+### Performance Controls
+
+| Setting | Description | Impact |
+|---------|-------------|--------|
+| **Confidence Threshold** | Detection sensitivity | Speed vs. Accuracy |
+| **Camera Resolution** | Frame size | Processing speed |
+| **Model Type** | YOLO vs. CNN | Detection vs. Classification |
+| **Memory Cleanup** | Periodic cleanup | Storage vs. Performance |
+
+### Emergency Controls
+
+| Action | Description | Use Case |
+|---------|-------------|----------|
+| **Force Quit** | `Ctrl+C` in terminal | Application unresponsive |
+| **Memory Reset** | Voice command "clear memory" | Start fresh |
+| **Model Reload** | Restart application | Model corruption |
+| **Camera Reset** | Restart application | Camera issues |
 
 ## 📁 Project Structure
 
 ```
 AI Studio Cam/
-├── src/
-│   ├── core/           # Core modules (camera, memory, voice)
-│   ├── config/         # Configuration management
-│   ├── training/       # CNN training pipeline
-│   ├── data/          # Data handling utilities
-│   └── utils/         # General utilities
-├── dataset/           # Training dataset (10 classes)
-├── models/           # Trained models
-├── results/          # Training results
-├── memory/           # Visual memory storage
-└── main.py          # Main application entry point
+├── core/           # Core modules (camera, memory, voice)
+├── config/         # Configuration management
+├── training/       # CNN training pipeline
+├── data/          # Data handling utilities
+├── models/        # Trained models
+├── memory/        # Visual memory storage
+├── tests/         # Test files
+└── main.py        # Main application entry point
 ```
 
 ## 🤖 Model Types
@@ -88,9 +170,6 @@ AI Studio Cam/
 ```bash
 # Start training with hyperparameter optimization
 python main.py --train
-
-# Or run directly
-python -m src.training.train_cnn_model
 ```
 
 ### Training Features
@@ -140,12 +219,6 @@ Edit `config/model_config.json`:
 - **Automatic Snapshots**: Every 15 seconds (configurable)
 
 ## 🛠️ Development
-
-### Adding New Models
-1. Create model class in `src/core/`
-2. Update camera handler factory
-3. Add configuration options
-4. Update main application
 
 ### Project Installation
 ```bash

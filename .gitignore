@@ -1,15 +1,9 @@
-# .gitignore
 __pycache__/
-*.wav
-*.pt
-*.mp4
-*.log
-*.json
-*.faiss
 venv/
 env/
-*.onnx
 ai-studio-env
-memory
+memory/
 snapshots/
 dataset/
+coco_dataset/
+tests/
