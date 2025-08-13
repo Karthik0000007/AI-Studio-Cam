@@ -7,3 +7,4 @@ snapshots/
 dataset/
 coco_dataset/
 tests/
+*.rar
